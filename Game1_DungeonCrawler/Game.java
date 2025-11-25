@@ -1,9 +1,16 @@
 import java.awt.*;
 import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 import java.util.Random;
 import javax.swing.*;
 
-public class Game extends JPanel implements KeyListener {
+// Added MouseListener (for clicking) and ActionListener (for the movement timer)
+public class Game extends JPanel implements KeyListener, MouseListener, ActionListener {
 
     // --- Settings ---
     private final int TILE_SIZE = 20;
@@ -11,6 +18,7 @@ public class Game extends JPanel implements KeyListener {
     private final int ROWS = 30;
     private final int WIDTH = COLS * TILE_SIZE;
     private final int HEIGHT = ROWS * TILE_SIZE;
+    private final int MOVEMENT_DELAY = 100; // Time in ms between steps (automatic walking)
 
     // --- Tile Types ---
     private final int TILE_WALL = 0;
@@ -21,14 +29,24 @@ public class Game extends JPanel implements KeyListener {
     private int[][] map; // The grid: map[y][x]
     private int playerX, playerY; // Player grid coordinates
     private boolean gameWon = false;
+    
+    // New variables for Mouse Movement
+    private Timer moveTimer;
+    private List<Point> currentPath;
 
     public Game() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.BLACK);
         setFocusable(true);
         addKeyListener(this);
+        addMouseListener(this); // Listen for mouse clicks
 
         generateLevel();
+        
+        // Initialize pathfinding tools
+        currentPath = new ArrayList<>();
+        moveTimer = new Timer(MOVEMENT_DELAY, this);
+        moveTimer.start();
     }
 
     // --- Generation Algorithm: Random Walker ---
@@ -74,6 +92,10 @@ public class Game extends JPanel implements KeyListener {
         // 4. Place Goal (Just put it at the walker's last position)
         map[walkerY][walkerX] = TILE_GOAL;
         gameWon = false;
+        
+        // Clear old paths when regenerating
+        if (currentPath != null) currentPath.clear();
+        
         repaint();
     }
 
@@ -100,6 +122,14 @@ public class Game extends JPanel implements KeyListener {
             }
         }
 
+        // Optional: Draw the path if one exists
+        if (currentPath != null && !currentPath.isEmpty()) {
+            g.setColor(new Color(0, 255, 255, 100)); // Semi-transparent Cyan
+            for (Point p : currentPath) {
+                g.fillRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            }
+        }
+
         // Draw Player
         g.setColor(Color.BLUE);
         // +2 for a little padding so it looks like it's inside the tile
@@ -118,6 +148,9 @@ public class Game extends JPanel implements KeyListener {
     // --- Input Handling ---
     @Override
     public void keyPressed(KeyEvent e) {
+        // Interrupt auto-movement if user presses a key
+        if (!currentPath.isEmpty()) currentPath.clear();
+
         int key = e.getKeyCode();
         
         if (gameWon && key == KeyEvent.VK_SPACE) {
@@ -154,9 +187,104 @@ public class Game extends JPanel implements KeyListener {
     @Override
     public void keyTyped(KeyEvent e) {}
 
+    // --- Mouse Handling & Pathfinding ---
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+        // Only react to Right Click
+        if (SwingUtilities.isRightMouseButton(e) && !gameWon) {
+            int targetX = e.getX() / TILE_SIZE;
+            int targetY = e.getY() / TILE_SIZE;
+
+            // Ensure click is within bounds and not on a wall
+            if (targetX >= 0 && targetX < COLS && targetY >= 0 && targetY < ROWS) {
+                if (map[targetY][targetX] != TILE_WALL) {
+                    calculatePath(targetX, targetY);
+                    repaint();
+                }
+            }
+        }
+    }
+
+    // BFS Algorithm to find shortest path
+    private void calculatePath(int targetX, int targetY) {
+        Queue<Point> frontier = new LinkedList<>();
+        HashMap<Point, Point> cameFrom = new HashMap<>();
+        
+        Point start = new Point(playerX, playerY);
+        Point goal = new Point(targetX, targetY);
+
+        frontier.add(start);
+        cameFrom.put(start, null);
+
+        boolean found = false;
+
+        while (!frontier.isEmpty()) {
+            Point current = frontier.poll();
+
+            if (current.equals(goal)) {
+                found = true;
+                break;
+            }
+
+            // Check neighbors (Up, Down, Left, Right)
+            Point[] neighbors = {
+                new Point(current.x, current.y - 1),
+                new Point(current.x, current.y + 1),
+                new Point(current.x - 1, current.y),
+                new Point(current.x + 1, current.y)
+            };
+
+            for (Point next : neighbors) {
+                // Bounds check
+                if (next.x >= 0 && next.x < COLS && next.y >= 0 && next.y < ROWS) {
+                    // Check if floor and not visited
+                    if (map[next.y][next.x] != TILE_WALL && !cameFrom.containsKey(next)) {
+                        frontier.add(next);
+                        cameFrom.put(next, current);
+                    }
+                }
+            }
+        }
+
+        if (found) {
+            // Reconstruct path
+            currentPath.clear();
+            Point current = goal;
+            while (!current.equals(start)) {
+                currentPath.add(current);
+                current = cameFrom.get(current);
+            }
+            Collections.reverse(currentPath); // Path is backwards, so flip it
+        }
+    }
+
+    // Timer Loop for Auto-Movement
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (!gameWon && currentPath != null && !currentPath.isEmpty()) {
+            Point nextStep = currentPath.remove(0); // Get next tile
+            playerX = nextStep.x;
+            playerY = nextStep.y;
+
+            // Check Win
+            if (map[playerY][playerX] == TILE_GOAL) {
+                gameWon = true;
+                currentPath.clear();
+            }
+            repaint();
+        }
+    }
+
+    // Unused Mouse Methods
+    @Override public void mouseClicked(MouseEvent e) {}
+    @Override public void mouseReleased(MouseEvent e) {}
+    @Override public void mouseEntered(MouseEvent e) {}
+    @Override public void mouseExited(MouseEvent e) {}
+
     // --- Main Entry Point ---
     public static void main(String[] args) {
-        JFrame frame = new JFrame("Game 2: Procedural Dungeon");
+        JFrame frame = new JFrame("Game");
         Game game = new Game();
         frame.add(game);
         frame.pack();

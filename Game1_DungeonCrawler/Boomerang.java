@@ -1,95 +1,81 @@
+/*
+Name: Ridoy Roy
+Date: 10/17/2025
+Description: Boomerang with fixed animation.
+*/
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.imageio.ImageIO;
 
 public class Boomerang extends Sprite {
-
-    public static final int BOOMERANG_WIDTH = 30;
-    public static final int BOOMERANG_HEIGHT = 30;
-
-    private static BufferedImage[] boomerangFrames = null;
-    private int currentFrameIndex = 0;
-    private static final int NUM_BOOMERANG_FRAMES = 5;
-    private static final int ANIMATION_SPEED = 2; 
+    private int dx, dy;
+    private int life = 100;
+    
+    private static BufferedImage[] frames = null;
+    private int currentFrame = 0;
     private int animationTimer = 0;
 
-    private int dx, dy;
-    private int lifespan = 50;
-
     public Boomerang(int x, int y, int dx, int dy) {
-        super(x, y, BOOMERANG_WIDTH, BOOMERANG_HEIGHT);
-        this.dx = dx;
-        this.dy = dy;
-        
-        //load all animation frames if they havent been loaded
-        if(boomerangFrames == null) {
-            loadBoomerangFrames();
-        }
+        super(x, y, 30, 30);
+        this.dx = dx; this.dy = dy;
+        if(frames == null) loadImages();
     }
 
-    private void loadBoomerangFrames() {
-        boomerangFrames = new BufferedImage[NUM_BOOMERANG_FRAMES];
-        boomerangFrames[1] = null;
-        for(int i = 1; i < NUM_BOOMERANG_FRAMES; i++) {
-            try {
-                boomerangFrames[i] = ImageIO.read(new File("images/boomerang" + i + ".png"));
-            } catch (Exception e) { 
-                e.printStackTrace(); 
-                System.err.println("Failed to load boomerang image: images/boomerang" + i + ".png");
-            }
-        }
+    public Boomerang(Json ob) {
+        super(0,0,0,0);
+    }
+
+    @Override
+    public void initializeTags() {
+        addTag("projectile");
     }
 
     @Override
     public boolean update() {
-        
         X += dx;
         Y += dy;
+        life--;
 
-        //countdown
-        lifespan--;
-        
-        //animation
+        // Animation: Change frame every 2 updates
         animationTimer++;
-        if(animationTimer >= ANIMATION_SPEED) {
-            currentFrameIndex = (currentFrameIndex + 1) % NUM_BOOMERANG_FRAMES;
+        if(animationTimer >= 2) { 
+            currentFrame++;
+            if(currentFrame >= 4) currentFrame = 0;
             animationTimer = 0;
         }
 
-        //return false when it dies
-        return (lifespan > 0); 
+        return life > 0;
     }
 
     @Override
-    public void draw(Graphics g, int mapX, int mapY){
-        if(boomerangFrames != null && boomerangFrames[currentFrameIndex] != null) {
-            g.drawImage(boomerangFrames[currentFrameIndex], X - mapX, Y - mapY, W, H, null);
+    public void onCollision(Sprite other) {
+        if(other.hasTag("solid")) {
+            life = 0; // Break on walls
+        }
+        if(other instanceof TreasureChests) {
+            life = 0; // Break on chests (allows chest to detect hit)
         }
     }
 
-    public void disappear(){
-        this.lifespan = 0;
+    @Override
+    public void draw(Graphics g, int mapX, int mapY) {
+        if(frames != null && frames[currentFrame] != null) 
+            g.drawImage(frames[currentFrame], X - mapX, Y - mapY, W, H, null);
     }
 
     @Override
-    public boolean isBoomerang() { 
-        return true; 
-    }
+    public Json marshal() { return null; }
 
-    @Override
-    public boolean saved() { 
-        return false; 
-    }
-
-    @Override
-    public Json marshal(){ 
-        return null;
-    }
-
-    @Override 
-    public String toString()
-    {
-        return "Boomerang (x,y) = (" + X + ", " + Y + "), w = " + W + ", h = " + H;
+    private void loadImages() {
+        frames = new BufferedImage[4];
+        try {
+            // Assumes images are boomerang1.png ... boomerang4.png
+            for(int i = 0; i < 4; i++) {
+                frames[i] = ImageIO.read(new File("images/boomerang" + (i + 1) + ".png"));
+            }
+        } catch(Exception e) { 
+            e.printStackTrace(); 
+        }
     }
 }

@@ -1,69 +1,61 @@
+/*
+Name: Ridoy Roy
+Date: 10/17/2025
+Description: Tree with grid snapping tag.
+*/
+
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.imageio.ImageIO;
 
-public class Tree extends Sprite{
-
+public class Tree extends Sprite {
     public static final int TREE_WIDTH = 50;
     public static final int TREE_HEIGHT = 65;
-
-    private static BufferedImage treeImage = null;
+    private static BufferedImage image = null;
 
     public Tree(int x, int y){
-
         super(x, y, TREE_WIDTH, TREE_HEIGHT);
-        getTreeImage();
-	}
+        if(image == null) loadImage();
+    }
 
-    @Override
-    public boolean update(){
-        return true;
+    public Tree(Json ob){
+        super((int)ob.getLong("x"), (int)ob.getLong("y"), TREE_WIDTH, TREE_HEIGHT);
+        if(image == null) loadImage();
     }
 
     @Override
-    public void draw(Graphics g, int mapX, int mapY){
-        g.drawImage(treeImage, X - mapX, Y - mapY, W, H, null);
+    public void initializeTags() {
+        addTag("solid");      
+        addTag("saveable");
+        
+        // NEW: Tells Model to snap this sprite to grid coordinates
+        addTag("grid_snap");  
     }
 
     @Override
-    public boolean isObstacle(){return true;}
-    @Override
-    public boolean isTree(){return true;}
-    @Override
-    public boolean saved(){return true;}
-
-    public static BufferedImage getTreeImage(){
-        if (treeImage == null){
-            try{
-                treeImage = ImageIO.read(new File("images/tree.png"));
-            }catch (Exception e){
-                e.printStackTrace();
-            }
-        }
-        return treeImage;
-    }
-    
-	public Tree(Json ob){
-        super((int) ob.getLong("x"), (int) ob.getLong("y"), (int) ob.getLong("w"), (int) ob.getLong("h"));
-        getTreeImage();
+    public void onCollision(Sprite other) {
+        // Trees are passive
     }
 
     @Override
-    public Json marshal(){
+    public boolean update() { return true; }
+
+    @Override
+    public void draw(Graphics g, int mapX, int mapY) {
+        g.drawImage(image, X - mapX, Y - mapY, W, H, null);
+    }
+
+    @Override
+    public Json marshal() {
         Json ob = Json.newObject();
-        ob.add("type", "tree");
-        ob.add("x", this.X);
-        ob.add("y", this.Y);
-        ob.add("w", this.W);
-        ob.add("h", this.H);
+        ob.add("type", "Tree");
+        ob.add("x", X); ob.add("y", Y);
         return ob;
     }
 
-    @Override 
-    public String toString()
-    {
-        return "Tree (x,y) = (" + X + ", " + Y + "), w = " + W + ", h = " + H;
+    private static void loadImage(){
+        try { image = ImageIO.read(new File("images/tree.png")); } 
+        catch (Exception e) { e.printStackTrace(); }
     }
-
 }

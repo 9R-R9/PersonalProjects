@@ -1,7 +1,12 @@
+/*
+Name: Ridoy Roy
+Date: 10/17/2025
+Description: Generic View - Fixes "isTree" errors.
+*/
+
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
-import java.awt.image.BufferedImage;
 import javax.swing.JPanel;
 
 public class View extends JPanel{
@@ -11,7 +16,6 @@ public class View extends JPanel{
 	public View(Controller c, Model m){
 		c.setView(this);
 		this.model = m;
-		
 	}
 	
 	@Override
@@ -19,55 +23,51 @@ public class View extends JPanel{
 		int mapX = model.getMapPosX(); 
 		int mapY = model.getMapPosY();
 		super.paintComponent(g);
+		
+        // Draw Background
 		g.setColor(new Color(95, 155, 100));
 		g.fillRect(0, 0, this.getWidth(), this.getHeight());
 		
+        // Draw All Sprites
 		for(Sprite sprite : model.getSprites()){
-			int spriteX = sprite.getX() - mapX;
-			int spriteY = sprite.getY() - mapY;
-			int spriteW = sprite.getW();
-			int spriteH = sprite.getH();
-
-			if(spriteX + spriteW >= 0 && 
-				spriteY + spriteH >= 0 && 
-				spriteX <= this.getWidth() && 
-				spriteY <= this.getHeight()){
-				sprite.draw(g, mapX, mapY);
-			}
+			sprite.draw(g, mapX, mapY);
 		}
 
-			int rupeeCount = model.getRupeeCount();
-			g.setColor(Color.GREEN);
-			g.setFont(new Font("Arial", Font.BOLD, 20));
-			g.drawString("Rupees: " + rupeeCount, this.getWidth() - 100, 20);
+        // Draw HUD
+        int rupeeCount = model.getRupeeCount();
+        g.setColor(Color.GREEN);
+        g.setFont(new Font("Arial", Font.BOLD, 20));
+        g.drawString("Rupees: " + rupeeCount, this.getWidth() - 150, 30);
 
+        // Draw Editor UI
 		if(Controller.editModeTorF()){
-			int boxX = 0, boxY = 0, boxW = 100, boxH = 100;
-			//if addmode true: green, if false: red, shoulda used this before its so much easier
+			int boxX = 20, boxY = 20, boxW = 80, boxH = 80;
 			g.setColor(Controller.addModeTorF() ? Color.GREEN : Color.RED);
+            g.drawRect(boxX, boxY, boxW, boxH);
+            g.setColor(new Color(0,0,0, 100));
             g.fillRect(boxX, boxY, boxW, boxH);
 			
-			//get type of item
+			// Generic Editor Drawing
             Sprite itemToDraw = model.getItemIAmAdding();
 
             if(itemToDraw != null){
-                BufferedImage itemImage = null;
-                //check type
-                if(itemToDraw.isTree()){
-                    itemImage = Tree.getTreeImage();
-                }else if(itemToDraw.isChest()){
-                    itemImage = TreasureChests.getChestImage();
-                }
-                //draw inside box
-                if(itemImage != null){
-                    //size of image
-                    int imageW = 75;
-                    int imageH = 75;
-                    int imageX = boxX + (boxW - imageW) / 2; 
-                    int imageY = boxY + (boxH - imageH) / 2; 
-                    g.drawImage(itemImage, imageX, imageY, imageW, imageH, null);
-                }
-			}
+                // Save original position
+                int originalX = itemToDraw.getX();
+                int originalY = itemToDraw.getY();
+                
+                // Move template to UI box
+                int centerX = boxX + (boxW - itemToDraw.getW()) / 2;
+                int centerY = boxY + (boxH - itemToDraw.getH()) / 2;
+                itemToDraw.setPosition(centerX, centerY);
+                
+                // Draw template
+                itemToDraw.draw(g, 0, 0);
+                
+                // Restore template
+                itemToDraw.setPosition(originalX, originalY);
+            }
+            g.setColor(Color.WHITE);
+            g.drawString("Edit Mode", boxX, boxY - 5);
         }
 	}
 }

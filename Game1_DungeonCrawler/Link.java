@@ -1,184 +1,201 @@
+/*
+Name: Ridoy Roy
+Date: 10/17/2025
+Description: Link with Smoothed Path Following.
+*/
+
 import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.Point; 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import javax.imageio.ImageIO;
 
-public class Link extends Sprite{
+public class Link extends Sprite {
+    private static final int LINK_WIDTH = 40;
+    private static final int LINK_HEIGHT = 55;
+    private double speed = 10;
+    private int direction = 0; 
+    private int lastDirection = 0;
+    private boolean isMoving = false;
+    private static Image[] frames = null;
+    
+    private boolean up, down, left, right;
+    
+    // PATHFINDING STATE
+    private ArrayList<Point> currentPath;
+    
+    // DRAGGING STATE
+    private int targetX, targetY;
+    private boolean hasTarget = false;
 
-	private static final int LINK_WIDTH = 40;
-	private static final int LINK_HEIGHT = 55;
-	//zoomin
-	private double speed = 10;
-	private int thisFrame = 1;
-	//0 = up, 1 = down, 2 = left, 3 = right
-	private int direction = 0;
-	private int lastDirection;
-	private boolean isMovingTorF = false;
-	private static Image[] frames = null;
-    private ArrayList<Sprite> sprites;
-    private boolean Up; 
-    private boolean Down;
-    private boolean Left;
-    private boolean Right;
-    private int lastX;
-    private int lastY;
-
-
-	public Link(int x, int y){
-		
-		super(x, y, LINK_WIDTH, LINK_HEIGHT);
-
-		if(frames == null){
-            loadFrames();
-        }
-	}
-	
+    public Link(int x, int y){
+        super(x, y, LINK_WIDTH, LINK_HEIGHT);
+        if(frames == null) loadFrames();
+        currentPath = new ArrayList<>();
+    }
+    
     @Override
-	public boolean update(){
-		if(isMovingTorF){
-            int firstFrame = direction * 11;
-            int lastFrame = firstFrame + 10;
+    public void initializeTags() {
+        tags.add("player");
+    }
 
-			if(thisFrame < firstFrame || thisFrame > lastFrame){
-                thisFrame = firstFrame;
-            }else{
-                thisFrame++;
-                if(thisFrame > lastFrame){
-					thisFrame = firstFrame;
-				}
-            }
-        }else{
-            thisFrame = lastDirection * 11;
+    // --- NEW: Pathfinding Methods ---
+    
+    public void setPath(ArrayList<Point> path) {
+        this.currentPath = path;
+        this.hasTarget = false;
+    }
+    
+    public void setDestination(int x, int y) {
+        this.targetX = x;
+        this.targetY = y;
+        this.hasTarget = true;
+        this.currentPath.clear();
+    }
+
+    @Override
+    public boolean update() {
+        // 1. Keyboard Override
+        int dx = 0; int dy = 0;
+        if(up) dy--;
+        if(down) dy++;
+        if(left) dx--;
+        if(right) dx++;
+
+        if(dx != 0 || dy != 0) {
+            currentPath.clear();
+            hasTarget = false;
         }
 
-        int directionX = 0;
-        int directionY = 0;
+        isMoving = false;
 
-        if(Up){
-            directionY -= 1;
+        // 2. Execute Movement Logic
+        if(dx != 0 || dy != 0) {
+            isMoving = true;
+            double moveSpeed = speed;
+            if(dx != 0 && dy != 0) moveSpeed = speed / Math.sqrt(2);
+            
+            X += (int)(dx * moveSpeed);
+            Y += (int)(dy * moveSpeed);
+            
+            updateDirection(dx, dy);
+        } else if(!currentPath.isEmpty()) {
+            followPath();
+        } else if(hasTarget) {
+            moveToTarget();
         }
-        if(Down){
-            directionY += 1;
-        }
-        if(Left){
-            directionX -= 1;
-        }
-        if(Right){
-            directionX += 1;
-        }
-
-        //saved pos
-        lastX = this.getX();
-        lastY = this.getY();
-
-        if(directionX == 0 && directionY == 0){
-            this.isLinkMoving(false);
-        }else{
-            this.isLinkMoving(true);
-        }
-
-        moveLink(directionX, 0);
-        moveLink(0, directionY);
-
+        
         return true;
-	}
-
-    public void setInputs(boolean up, boolean down, boolean left, boolean right, ArrayList<Sprite> sprites){
-        this.Up = up;
-        this.Down = down;
-        this.Left = left;
-        this.Right = right;
-        this.sprites = sprites;
     }
 
-	private static void loadFrames(){
-        //4 directions * 11 frames per direction
-		frames = new Image[44];
-        try{
-            for(int i = 0; i < frames.length; i++){
-                File file = new File("images/link" + (i + 1) + ".png");
-                frames[i] = ImageIO.read(file);
-                System.out.println("Loaded: " + file.getAbsolutePath() + " exists " + file.exists());
+    private void followPath() {
+        if(currentPath.isEmpty()) return;
+
+        double remainingSpeed = speed;
+        
+        // Loop to consume speed across multiple nodes if needed
+        while(remainingSpeed > 0 && !currentPath.isEmpty()) {
+            Point nextTarget = currentPath.get(0);
+            double diffX = nextTarget.x - X;
+            double diffY = nextTarget.y - Y;
+            double dist = Math.sqrt(diffX*diffX + diffY*diffY);
+
+            if(dist <= remainingSpeed) {
+                // Arrive at node and continue
+                X = nextTarget.x;
+                Y = nextTarget.y;
+                remainingSpeed -= dist;
+                currentPath.remove(0);
+            } else {
+                // Move partial distance
+                isMoving = true;
+                double ratio = remainingSpeed / dist;
+                double moveX = diffX * ratio;
+                double moveY = diffY * ratio;
+                
+                X += (int)moveX;
+                Y += (int)moveY;
+                
+                updateDirection((int)moveX, (int)moveY);
+                remainingSpeed = 0;
             }
-        }catch(IOException e){
-            e.printStackTrace();
+        }
+    }
+    
+    private void moveToTarget() {
+        double diffX = targetX - X;
+        double diffY = targetY - Y;
+        double dist = Math.sqrt(diffX*diffX + diffY*diffY);
+
+        if(dist < speed) {
+            X = targetX;
+            Y = targetY;
+            hasTarget = false;
+            isMoving = false;
+        } else {
+            isMoving = true;
+            double moveX = (diffX / dist) * speed;
+            double moveY = (diffY / dist) * speed;
+            
+            X += (int)moveX;
+            Y += (int)moveY;
+            
+            updateDirection((int)moveX, (int)moveY);
         }
     }
 
+    private void updateDirection(int dx, int dy) {
+        if(Math.abs(dy) >= Math.abs(dx)) {
+            if(dy > 0) direction = 0; 
+            else if(dy < 0) direction = 3; 
+        } else {
+            if(dx < 0) direction = 1; 
+            else if(dx > 0) direction = 2; 
+        }
+        lastDirection = direction;
+    }
+
     @Override
-    public Json marshal(){
+    public void onCollision(Sprite other) {
+        if(other.hasTag("solid")) {
+            pushOutOf(other);
+            // REMOVED: Stopping logic. 
+            // This allows Link to "slide" along walls or recover from corner clips.
+        }
+    }
+
+    public void setInputs(boolean u, boolean d, boolean l, boolean r, ArrayList<Sprite> s){
+        this.up = u; this.down = d; this.left = l; this.right = r;
+    }
+
+    public int getLastDirection() { return lastDirection; }
+
+    @Override
+    public void draw(Graphics g, int mapX, int mapY) {
+        int frameIndex = lastDirection * 11;
+        if(isMoving) {
+            int cycle = (int)(System.currentTimeMillis() / 50) % 11;
+            frameIndex += cycle;
+        }
+        g.drawImage(frames[frameIndex], X - mapX, Y - mapY, W, H, null);
+    }
+
+    @Override
+    public Json marshal() {
         Json ob = Json.newObject();
-        ob.add("x", this.X);
-        ob.add("y", this.Y);
-        ob.add("w", this.W);
-        ob.add("h", this.H);
+        ob.add("type", "Link"); 
+        ob.add("x", X); ob.add("y", Y);
         return ob;
     }
 
-    @Override
-	public void draw(Graphics g, int mapX, int mapY){
-        g.drawImage(frames[thisFrame], X - mapX, Y - mapY, LINK_WIDTH, LINK_HEIGHT, null);
-    }
-
-    @Override
-    public boolean isLink(){return true;}
-    @Override
-    public boolean saved(){return false;}
-
-	public void setPosition(int x, int y){
-		this.X = x;
-		this.Y = y;
-	}
-
-	public void moveLink(int directionX, int directionY){
-        if(directionX == 0 && directionY == 0){
-            isMovingTorF = false;
-            return;
-        }
-        isMovingTorF = true;
-
-		//making it so diagonal movement isn't faster than cardinal direction
-        if(directionX != 0 && directionY != 0){
-            double inv = 1.0 / Math.sqrt(2);
-            X += (int) Math.round(directionX * speed * inv);
-            Y += (int) Math.round(directionY * speed * inv);
-        }else{
-            X += directionX * speed;
-            Y += directionY * speed;
-        }
-
-		//up
-        if(directionY < 0){
-			direction = 3;
-		}
-		//down
-        if(directionY > 0){
-			direction = 0;
-		}
-		//left
-        if(directionX < 0){
-			direction = 1;
-		}
-		//right
-        if(directionX > 0){
-			direction = 2;
-		}
-
-        lastDirection = direction;
-    }
-    
-    public int getLastDirection(){
-        return this.lastDirection;
-    }
-
-    public void isLinkMoving(boolean movingToF){
-        this.isMovingTorF = movingToF;
-    }
-
-	@Override 
-    public String toString(){
-        return "Link (x,y) = (" + X + ", " + Y + "), w = " + W + ", h = " + H;
+    private static void loadFrames(){
+        frames = new Image[44];
+        try{
+            for(int i = 0; i < frames.length; i++){
+                frames[i] = ImageIO.read(new File("images/link" + (i + 1) + ".png"));
+            }
+        } catch(IOException e) { e.printStackTrace(); }
     }
 }

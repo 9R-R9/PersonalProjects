@@ -1,70 +1,67 @@
 import java.awt.Graphics;
+import java.util.ArrayList;
 
-public abstract class Sprite{
+public abstract class Sprite {
     
     protected int X, Y, W, H;
+    protected ArrayList<String> tags;
 
     public Sprite(int x, int y, int w, int h){
         this.X = x;
         this.Y = y;
         this.W = w;
         this.H = h;
+        this.tags = new ArrayList<>();
+        initializeTags();
     }
 
+    public abstract void initializeTags();
     public abstract boolean update();
-
     public abstract void draw(Graphics g, int mapX, int mapY);
-
     public abstract Json marshal();
 
-    //general purpose collision detection between 2 sprites
+    public void onCollision(Sprite other) {
+        // Default: do nothing
+    }
+
+    // NEW: Generic Score System
+    public int getScore() {
+        return 0; 
+    }
+
+    public void addTag(String tag) {
+        if(!tags.contains(tag)) tags.add(tag);
+    }
+
+    public boolean hasTag(String tag) {
+        return tags.contains(tag);
+    }
+
     public static boolean doesCollide(Sprite a, Sprite b){
-        //check if they are not overlapping
-        //right
-        if(a.X >= b.X + b.W){
-            return false;
-        }
-        //left
-        if(a.X + a.W <= b.X){
-            return false;
-        }
-        //up
-        if(a.Y + a.H <= b.Y){
-            return false;
-        }
-        //down
-        if(a.Y >= b.Y + b.H){
-            return false;
-        }
-        //if all of those fail then its overallped
+        if(a.X >= b.X + b.W) return false;
+        if(a.X + a.W <= b.X) return false;
+        if(a.Y + a.H <= b.Y) return false;
+        if(a.Y >= b.Y + b.H) return false;
         return true;
     }
 
-    public boolean isObstacle(){return false;}
-    public boolean isTree(){return false;}
-    public boolean isLink(){return false;}
-    public boolean isChest(){return false;}
-    public boolean isBoomerang(){return false;}
-    public boolean saved(){return false;}
-    
+    public void pushOutOf(Sprite obstacle) {
+        int overlapRight = (this.X + this.W) - obstacle.X;
+        int overlapLeft = (obstacle.X + obstacle.W) - this.X;
+        int overlapDown = (this.Y + this.H) - obstacle.Y;
+        int overlapUp = (obstacle.Y + obstacle.H) - this.Y;
 
-    //getters
-    public int getX(){
-        return this.X;
-    }
-    public int getY(){
-        return this.Y;
-    }
-    public int getW(){
-        return this.W;
-    }
-    public int getH(){
-        return this.H;
+        int minOverlap = Math.min(Math.min(overlapRight, overlapLeft), Math.min(overlapDown, overlapUp));
+
+        if(minOverlap == overlapRight) this.X -= overlapRight;
+        else if(minOverlap == overlapLeft) this.X += overlapLeft;
+        else if(minOverlap == overlapDown) this.Y -= overlapDown;
+        else if(minOverlap == overlapUp) this.Y += overlapUp;
     }
 
-    //setter
-    public void setPosition(int x, int y){
-        this.X = x;
-        this.Y = y;
-    }
+    public int getX() { return X; }
+    public int getY() { return Y; }
+    public int getW() { return W; }
+    public int getH() { return H; }
+    public void setPosition(int x, int y) { this.X = x; this.Y = y; }
 }

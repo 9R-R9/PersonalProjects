@@ -1,3 +1,9 @@
+/*
+Name: Ridoy Roy
+Date: 10/17/2025
+Description: Game Entry point with MouseMotionListener registered.
+*/
+
 import java.awt.Toolkit;
 import javax.swing.JFrame;
 
@@ -28,19 +34,20 @@ public class Game extends JFrame{
 		this.getContentPane().add(view);
 		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		this.setVisible(true);
-		this.addKeyListener(controller);
-		view.addMouseListener(controller);
 		
+        // Inputs
+        this.addKeyListener(controller);
+		view.addMouseListener(controller);
+        view.addMouseMotionListener(controller); // NEW: Enable Dragging!
 	}
 
 	public void run(){
 		do{
 			keepGoing = controller.update();
 			model.update(view.getWidth(), view.getHeight());
-			view.repaint(); // This will indirectly call View.paintComponent
-			Toolkit.getDefaultToolkit().sync(); // Updates screen
+			view.repaint(); 
+			Toolkit.getDefaultToolkit().sync(); 
 
-			// Go to sleep for 50 milliseconds
 			try{
 				Thread.sleep(50);
 			} catch(Exception e){
